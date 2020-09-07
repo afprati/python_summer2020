@@ -38,6 +38,8 @@ import sys # add directory to system PATH
 import time
 
 start_twitter_handle = 'WUSTLPoliSci'
+batch_size = 100 #max allowed by tweepy
+sleep_time = 20
 laymen_follower_count = 100
 expert_follower_count = 1000
 celebrity_follower_count = 1001
@@ -45,6 +47,8 @@ celebrity_follower_count = 1001
 sys.path.insert(0, 'C:/Users/miame/Documents/Secrets')
 twitter = importlib.import_module('start_twitter')
 api = twitter.client
+
+start = time.time()
 
 # =============================================================================
 # variables we want from first degree of separation
@@ -66,11 +70,22 @@ most_active_follower = {}
 most_active_friend = {}
 
 # =============================================================================
+# function to batch out users from provided list
+# from: https://stackoverflow.com/questions/8290397/how-to-split-an-iterable-in-constant-size-chunks
+# =============================================================================
+
+def batch(iterable, n=batch_size):
+    l = len(iterable)
+    for ndx in range(0, l, n):
+        yield iterable[ndx:min(ndx + n, l)]
+
+# =============================================================================
 # function to determine most active follower, most popular follower,
 # and a dictionary of followers
 # =============================================================================
 
 def get_followers(handles_list):
+    global number_requests
     #creating a dictionary for the followers
     follower_dict = {}
 
@@ -81,40 +96,46 @@ def get_followers(handles_list):
     most_popular = {'screen_name' : 0}
 
     for user in handles_list:
-        print("User handle: " + user)
+        current_time = time.time()
+        print("User handle: " + user + ". Elapsed time: " + str(current_time - start))
         user_follower_ids = api.followers_ids(user)
-        #print(len(user_follower_ids))
+        number_requests += 1
+
         loop_count = 0
-        for follower_id in user_follower_ids:
+
+        for batch_list in batch(user_follower_ids):
+            print("Batch #" + str(loop_count) + ": " + str(loop_count*batch_size + len(batch_list)) +
+                  " (request count: " + str(number_requests) + ").")
             loop_count+=1
-            print(str(loop_count) + ": Follower id: " + str(follower_id))
-            time.sleep(1) #to avoid rate limit
-            #creating user object for every follower
-            follower = api.get_user(follower_id)
-            screen_name = follower.screen_name
-            tweet_count = follower.statuses_count
-            followers_count = follower.followers_count
+            time.sleep(sleep_time) #to avoid rate limit
 
-            # finding most active friend by category
-            if followers_count <= laymen_follower_count:
-                if tweet_count > list(most_active_laymen.values())[0]:
-                    most_active_laymen = {screen_name : tweet_count}
-            elif followers_count >= celebrity_follower_count:
-                if tweet_count > list(most_active_celebrity.values())[0]:
-                    most_active_celebrity = {screen_name : tweet_count}
-            else: #aka an expert
-                if tweet_count > list(most_active_expert.values())[0]:
-                    most_active_expert = {screen_name : tweet_count}
+            followers = api.lookup_users(batch_list)
+            number_requests += 1
 
+            for follower in followers:
+                screen_name = follower.screen_name
+                tweet_count = follower.statuses_count
+                followers_count = follower.followers_count
 
-            if followers_count > list(most_popular.values())[0]:
-                most_popular = {screen_name : followers_count}
+                # finding most active friend by category
+                if followers_count <= laymen_follower_count:
+                    if tweet_count > list(most_active_laymen.values())[0]:
+                        most_active_laymen = {screen_name : tweet_count}
+                elif followers_count >= celebrity_follower_count:
+                    if tweet_count > list(most_active_celebrity.values())[0]:
+                        most_active_celebrity = {screen_name : tweet_count}
+                else: #aka an expert
+                    if tweet_count > list(most_active_expert.values())[0]:
+                        most_active_expert = {screen_name : tweet_count}
 
-            #updating the dictionary;
-            #ONLY SAVING LAYMEN AND EXPERTS (per assignment)
-            #values are tuple with tweet count first, follower count second
-            if followers_count < celebrity_follower_count:
-                follower_dict.update({screen_name : (tweet_count, followers_count)})
+                if followers_count > list(most_popular.values())[0]:
+                    most_popular = {screen_name : followers_count}
+
+                #updating the dictionary;
+                #ONLY SAVING LAYMEN AND EXPERTS (per assignment)
+                #values are tuple with tweet count first, follower count second
+                if followers_count < celebrity_follower_count:
+                    follower_dict.update({screen_name : (tweet_count, followers_count)})
 
     return (follower_dict, most_active_laymen, most_active_expert,
             most_active_celebrity, most_popular) #returning tuple
@@ -125,6 +146,7 @@ def get_followers(handles_list):
 # =============================================================================
 
 def get_friends(handles_list):
+    global number_requests
     #creating a dictionary for the followers
     friends_dict = {}
 
@@ -136,39 +158,44 @@ def get_friends(handles_list):
 
     for user in handles_list:
         loop_count = 0
-        print("User handle: " + user)
+        current_time = time.time()
+        print("User handle: " + user + ". Elapsed time: " + str(current_time - start))
         user_friends_ids = api.friends_ids(user)
-        #print(len(user_friends_ids))
-        for friend_id in user_friends_ids:
-            loop_count += 1
-            print(str(loop_count) + ": Friend id: " + str(friend_id))
-            time.sleep(1) #to avoid rate limit
-            #creating user object for every friend
-            friend = api.get_user(friend_id)
-            screen_name = friend.screen_name
-            tweet_count = friend.statuses_count
-            followers_count = friend.followers_count
+        number_requests += 1
 
-            # finding most active friend by category
-            if followers_count <= laymen_follower_count:
-                if tweet_count > list(most_active_laymen.values())[0]:
-                    most_active_laymen = {screen_name : tweet_count}
-            elif followers_count >= celebrity_follower_count:
-                if tweet_count > list(most_active_celebrity.values())[0]:
-                    most_active_celebrity = {screen_name : tweet_count}
-            else: #aka an expert
-                if tweet_count > list(most_active_expert.values())[0]:
-                    most_active_expert = {screen_name : tweet_count}
+        for batch_list in batch(user_friends_ids):
+            print("Batch #" + str(loop_count) + ": " + str(loop_count*batch_size + len(batch_list)) +
+                  " (request count: " + str(number_requests) + ").")
+            loop_count+=1
+            time.sleep(sleep_time) #to avoid rate limit
 
-            # finding most popular friend
-            if followers_count > list(most_popular.values())[0]:
-                most_popular = {screen_name : followers_count}
+            friends = api.lookup_users(batch_list)
+            number_requests += 1
 
-            #updating the dictionary;
-            #ONLY SAVING LAYMEN AND EXPERTS (per assignment)
-            #values are tuple with tweet count first, follower count second
-            if followers_count < celebrity_follower_count:
-                friends_dict.update({screen_name : (tweet_count, followers_count)})
+            for friend in friends:
+                screen_name = friend.screen_name
+                tweet_count = friend.statuses_count
+                followers_count = friend.followers_count
+    
+                # finding most active friend by category
+                if followers_count <= laymen_follower_count:
+                    if tweet_count > list(most_active_laymen.values())[0]:
+                        most_active_laymen = {screen_name : tweet_count}
+                elif followers_count >= celebrity_follower_count:
+                    if tweet_count > list(most_active_celebrity.values())[0]:
+                        most_active_celebrity = {screen_name : tweet_count}
+                else: #aka an expert
+                    if tweet_count > list(most_active_expert.values())[0]:
+                        most_active_expert = {screen_name : tweet_count}
+                # finding most popular friend
+                if followers_count > list(most_popular.values())[0]:
+                    most_popular = {screen_name : followers_count}
+    
+                #updating the dictionary;
+                #ONLY SAVING LAYMEN AND EXPERTS (per assignment)
+                #values are tuple with tweet count first, follower count second
+                if followers_count < celebrity_follower_count:
+                    friends_dict.update({screen_name : (tweet_count, followers_count)})
 
     return (friends_dict, most_active_laymen, most_active_expert,
             most_active_celebrity,  most_popular) #returning tuple
@@ -185,19 +212,10 @@ def get_highest(list_of_dicts):
     values_index = values.index(max_value)
     return {keys[values_index] : values[values_index]}
 
-
-#wustl = api.get_user(start_twitter_handle)
-#wustl_follower_ids = wustl.followers_ids()
-#print(wustl_follower_ids)
-#wustl_friend_ids = api.friends_ids(start_twitter_handle)
-#api.followers_ids(start_twitter_handle)
-#wustl_first_follower = api.get_user(wustl_follower_ids[0])
-
 # =============================================================================
 # first degree
 # =============================================================================
-
-start = time.time()
+number_requests = 0
 
 print("Starting to find followers of " + start_twitter_handle)
 
