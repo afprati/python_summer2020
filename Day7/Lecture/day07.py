@@ -86,7 +86,7 @@ Base = declarative_base()
 
 # Define some schemas (The blueprint)
 
-# One to Many example
+# One to Many example: one player, many teams
 # - foreign key on child (player)
 # - relationship() then specified by parent (team) to reference many items
 class Player(Base):
