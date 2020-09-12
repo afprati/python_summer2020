@@ -1,4 +1,4 @@
-import sqlalchemy
+from sqlalchemy import *
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, ForeignKey, and_, or_
 from sqlalchemy.orm import relationship, backref, sessionmaker
