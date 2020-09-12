@@ -115,11 +115,33 @@ movies[kb].keys() ## found meryl streep!
 
 
 
+
+
 ## TODO: implement findAllPaths() to find all paths between two nodes
 ## allPaths = findAllPaths(movies, jr, ms)
 ## for path in allPaths:
 ##   print path
 
+def findAllPaths(graph, start, end, path=[]):
+    ## create list
+    path = path + [start]
+    more_nodes = []
+    ## base case, reached end
+    if start == end:
+        return path
+    if start not in graph:
+        return None
+    ## for each connection to starting node
+    for node in graph[start]:
+        ## check if it is already in path
+        if node not in path:
+            more_nodes.extend(findAllPaths(graph, node, end, path))
+    ## if not, call recursively, thus adding node to path
+    ## carry around path object with you
+    return more_nodes
+
+
+print(findAllPaths(movies, jr, ms))
 
 
 
@@ -128,9 +150,13 @@ movies[kb].keys() ## found meryl streep!
 ## TODO: implement findShortestPath() to print shorest path between actors
 ## print findShortestPath(movies, ms, ss)
 
+def findShortestPath(graph, start, end):
+    all_of_em = findAllPaths(graph, start, end)
+    return min(all_of_em, key = len)
 
+shortest = findShortestPath(movies, jr, ms)
 
-
+print(shortest)
 
 
 # Copyright (c) 2014 Matt Dickenson
